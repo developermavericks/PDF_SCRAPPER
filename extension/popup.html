@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Article PDF Scrapper</title>
+    <style>
+        body {
+            width: 320px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 16px;
+        }
+
+        h2 {
+            font-size: 15px;
+            margin: 0 0 4px 0;
+            color: #ed193b;
+        }
+
+        p {
+            font-size: 11px;
+            color: #94a3b8;
+            margin: 0 0 14px 0;
+        }
+
+        .url-box {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 11px;
+            color: #38bdf8;
+            word-break: break-all;
+            margin-bottom: 14px;
+            max-height: 50px;
+            overflow-y: auto;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #fff;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-bottom: 14px;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #ed193b;
+            border: none;
+            color: #fff;
+            font-weight: bold;
+            font-size: 13px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .status {
+            margin-top: 12px;
+            font-size: 12px;
+            text-align: center;
+            display: none;
+        }
+
+        .status.success { color: #10b981; }
+        .status.error { color: #ef4444; }
+        .status.loading { color: #38bdf8; }
+    </style>
+</head>
+<body>
+    <h2>⚡ Article PDF Scrapper</h2>
+    <p>Convert current tab to PDF via local server</p>
+
+    <div class="url-box" id="tabUrl">Detecting active page...</div>
+
+    <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">Editorial Style:</label>
+    <select id="templateSelect">
+        <option value="economic">ET / Financial Style</option>
+        <option value="newspaper">Times Classic Style</option>
+        <option value="minimal">Modern Minimalist</option>
+        <option value="dark">Executive Dark Mode</option>
+    </select>
+
+    <button id="btnConvert">📥 Save Page as PDF</button>
+
+    <div class="status" id="statusMsg"></div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

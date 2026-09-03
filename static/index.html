@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Universal Article PDF Generator</title>
+    
+    <!-- PWA & Android Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#ed193b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="brand-icon">⚡</div>
+                <div>
+                    <h1 class="brand-title">Article PDF Generator</h1>
+                    <p class="brand-subtitle">Turn any article URL into a clean, publishing-grade PDF instantly</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button type="button" class="btn-install-app" id="btnInstallApp">
+                    📲 Install App
+                </button>
+                <div class="status-badge" id="statusBadge">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Server Active</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Converter Card -->
+        <main class="converter-section">
+            <div class="glass-card main-card">
+                <h2 class="card-title">Paste Article URL</h2>
+                
+                <div class="input-group">
+                    <div class="url-input-wrapper">
+                        <span class="input-icon">🌐</span>
+                        <input type="url" id="urlInput" placeholder="https://m.economictimes.com/... or any news link" autocomplete="off" required>
+                        <button type="button" class="btn-paste" id="btnPaste" title="Paste from clipboard">
+                            📋 Paste
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Template Selector -->
+                <div class="template-section">
+                    <label class="section-label">Select Editorial Style Template:</label>
+                    <div class="template-grid">
+                        <div class="template-card active" data-template="economic">
+                            <div class="template-header">
+                                <span class="template-badge red">ET / Financial</span>
+                                <span class="template-check">✓</span>
+                            </div>
+                            <h3 class="template-name">Financial Times / ET</h3>
+                            <p class="template-desc">Dark crimson accents, serif body typography, and executive synopsis block.</p>
+                        </div>
+
+                        <div class="template-card" data-template="newspaper">
+                            <div class="template-header">
+                                <span class="template-badge dark-red">TOI / Classic</span>
+                                <span class="template-check">✓</span>
+                            </div>
+                            <h3 class="template-name">Times Classic</h3>
+                            <p class="template-desc">Classic bold header styling, structured data tables, and environmental highlights.</p>
+                        </div>
+
+                        <div class="template-card" data-template="minimal">
+                            <div class="template-header">
+                                <span class="template-badge blue">Modern</span>
+                                <span class="template-check">✓</span>
+                            </div>
+                            <h3 class="template-name">Modern Minimalist</h3>
+                            <p class="template-desc">Clean blue highlights, Inter sans-serif headers, and distraction-free reading.</p>
+                        </div>
+
+                        <div class="template-card" data-template="dark">
+                            <div class="template-header">
+                                <span class="template-badge cyan">Executive Dark</span>
+                                <span class="template-check">✓</span>
+                            </div>
+                            <h3 class="template-name">Dark Mode Reader</h3>
+                            <p class="template-desc">Sleek dark background, neon blue callouts, and night reading optimization.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Optional Paywall Settings Accordion -->
+                <details class="advanced-settings">
+                    <summary class="advanced-summary">⚙️ Advanced Paywall & Subscriber Settings (Optional)</summary>
+                    <div class="advanced-content">
+                        <label class="section-label">Subscriber Cookie / Session Header (Optional for Hard Paywall Sites):</label>
+                        <input type="text" id="cookieInput" placeholder="e.g. _ga=...; session_id=... (Only needed for private login paywalls)" class="advanced-input">
+                        <p class="advanced-hint">Tip: On Android, you can also share any news article directly from Chrome / Twitter by selecting "Share ➔ Article PDF Generator".</p>
+                    </div>
+                </details>
+
+                <!-- Submit Button -->
+                <button type="button" class="btn-primary" id="btnGenerate">
+                    <span class="btn-text">🚀 Scrape & Generate PDF</span>
+                    <span class="btn-spinner hide" id="btnSpinner"></span>
+                </button>
+            </div>
+
+            <!-- Progress Tracker -->
+            <div class="glass-card progress-card hide" id="progressCard">
+                <div class="progress-header">
+                    <h3 class="progress-title" id="progressTitle">Converting Article...</h3>
+                    <span class="progress-percent" id="progressPercent">25%</span>
+                </div>
+                <div class="progress-bar-track">
+                    <div class="progress-bar-fill" id="progressBarFill"></div>
+                </div>
+                <div class="progress-steps">
+                    <div class="step active" id="step1">1. Fetching Page</div>
+                    <div class="step" id="step2">2. Bypassing Paywall</div>
+                    <div class="step" id="step3">3. Rendering Layout</div>
+                    <div class="step" id="step4">4. Compiling PDF</div>
+                </div>
+            </div>
+
+            <!-- Result Card -->
+            <div class="glass-card result-card hide" id="resultCard">
+                <div class="result-header">
+                    <div class="result-success-icon">✨</div>
+                    <div>
+                        <h3 class="result-title" id="resultTitle">PDF Generated Successfully!</h3>
+                        <p class="result-subtitle" id="resultSubtitle">Your article has been converted and saved.</p>
+                    </div>
+                </div>
+                <div class="result-actions">
+                    <a href="#" class="btn-download" id="btnDownloadPDF" target="_blank" download>
+                        📥 Download PDF
+                    </a>
+                    <button type="button" class="btn-secondary" id="btnPreviewPDF">
+                        👁️ Preview PDF
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Converted History Section -->
+        <section class="history-section">
+            <div class="history-header">
+                <h2 class="history-title">📚 Previously Converted PDFs</h2>
+                <button type="button" class="btn-refresh" id="btnRefreshHistory">🔄 Refresh</button>
+            </div>
+            
+            <div class="history-grid" id="historyGrid">
+                <!-- History cards inserted via JS -->
+            </div>
+        </section>
+
+        <!-- Preview Modal -->
+        <div class="modal-overlay hide" id="previewModal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="modalPDFTitle">PDF Preview</h3>
+                    <button type="button" class="modal-close" id="btnCloseModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="pdfPreviewIframe" src="" frameborder="0"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

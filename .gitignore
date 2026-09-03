@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+output/
+apk_build_temp/
+local_ip.txt
+cf_mobile_url.txt
+.vscode/
+.idea/
