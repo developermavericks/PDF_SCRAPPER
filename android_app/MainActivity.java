@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
     private WebView webView;
     private SharedPreferences prefs;
     private static final String PREF_SERVER_URL = "server_url";
-    private static final String DEFAULT_SERVER_URL = "https://pdf-scrapper-d28y.onrender.com";
+    private static final String DEFAULT_SERVER_URL = "https://pdf-scrapper-d25y.onrender.com";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
