@@ -51,12 +51,13 @@ print('[2/5] Converting bytecode to classes.dex using D8...')
 dex_dir = os.path.join(work_dir, 'dex')
 os.makedirs(dex_dir, exist_ok=True)
 
-class_file = os.path.join(classes_dir, 'com', 'pdfscrapper', 'app', 'MainActivity.class')
-class_inner = os.path.join(classes_dir, 'com', 'pdfscrapper', 'app', 'MainActivity$1.class')
+class_files = []
+for root, dirs, files in os.walk(classes_dir):
+    for file in files:
+        if file.endswith('.class'):
+            class_files.append(os.path.join(root, file))
 
-class_files = [class_file]
-if os.path.exists(class_inner):
-    class_files.append(class_inner)
+print(f"Found {len(class_files)} class files for DEX conversion: {[os.path.basename(f) for f in class_files]}")
 
 cmd_d8 = [d8, '--lib', android_jar, '--output', dex_dir] + class_files
 res = subprocess.run(cmd_d8, capture_output=True, text=True, shell=True, env=env)
