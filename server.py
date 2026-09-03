@@ -30,6 +30,7 @@ class ConvertRequest(BaseModel):
     custom_filename: Optional[str] = None
     raw_html: Optional[str] = None
     cookie_header: Optional[str] = None
+    proxy_url: Optional[str] = None
 
 @app.post("/api/convert")
 def convert_article(req: ConvertRequest):
@@ -42,7 +43,8 @@ def convert_article(req: ConvertRequest):
             template_id=req.template_id or "economic",
             custom_filename=req.custom_filename,
             raw_html=req.raw_html,
-            cookie_header=req.cookie_header
+            cookie_header=req.cookie_header,
+            proxy_url=req.proxy_url
         )
         result['download_url'] = f"/api/download/{result['filename']}"
         return JSONResponse(content={"status": "success", "data": result})
