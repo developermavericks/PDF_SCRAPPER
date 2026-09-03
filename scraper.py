@@ -213,9 +213,12 @@ def scrape_article_data(url, raw_html=None, cookie_header=None, proxy_url=None):
         if 'display:none' in st or 'visibility:hidden' in st:
             hidden['style'] = ''
 
-    # Clean noise tags
-    for tag in soup(['script', 'style', 'iframe', 'noscript', 'nav', 'header', 'footer', 'aside']):
+    # Clean noise tags aggressively from whole page
+    for tag in soup(['script', 'style', 'iframe', 'noscript', 'nav', 'header', 'footer', 'aside', 'form', 'button', 'svg']):
         tag.decompose()
+
+    for noise_elem in soup.find_all(class_=re.compile(r'nav|menu|sidebar|footer|header|recommend|related|trending|social|comment|share|promo|ad-|banner|newsletter|breadcrumb|tags|author-box', re.I)):
+        noise_elem.decompose()
         
     # Title
     h1 = soup.find('h1')
@@ -257,30 +260,47 @@ def scrape_article_data(url, raw_html=None, cookie_header=None, proxy_url=None):
 
     img_b64 = download_image_as_b64(img_url) if img_url else ''
 
-    # Paragraphs extraction
-    paragraphs = []
-    art_body = soup.find(class_=re.compile(r'artText|article_body|story_body|art_content|entry-content|post-content|main_content', re.I)) or soup.find('article')
+    # Precision Article Body Container Isolation
+    art_body = (
+        soup.find('article') or 
+        soup.find(role='main') or 
+        soup.find('main') or 
+        soup.find(class_=re.compile(r'article-body|story-body|artText|entry-content|post-content|article_body|story_body|content-body|paywall|article-content', re.I)) or
+        soup.find(id=re.compile(r'article-body|story-body|artText|entry-content|post-content|article_body', re.I))
+    )
     
     if not art_body:
-        art_body = soup.body
+        best_container = None
+        max_p_count = 0
+        for container in soup.find_all(['div', 'section']):
+            p_count = len(container.find_all('p', recursive=False))
+            if p_count > max_p_count:
+                max_p_count = p_count
+                best_container = container
+        art_body = best_container or soup.body
 
+    paragraphs = []
     raw_text = ""
     if art_body:
         raw_text = art_body.get_text()
-        for elem in art_body.find_all(['p', 'h2', 'h3', 'blockquote', 'ul', 'ol', 'div']):
-            elem_class = " ".join(elem.get('class', [])) if isinstance(elem.get('class'), list) else str(elem.get('class', ''))
-            if re.search(r'ad|banner|widget|social|comment|share|promo|subscribe|footer', elem_class, re.I):
+        for elem in art_body.find_all(['p', 'h2', 'h3', 'h4', 'blockquote', 'ul', 'ol']):
+            if elem.find_parent(['p', 'blockquote', 'li']):
                 continue
-            
+                
             txt = elem.get_text(strip=True)
             if not txt or len(txt) < 15 or "Already a Member?" in txt or "Subscribe Now" in txt or "Become an ET Prime" in txt:
                 continue
-                
-            # Avoid duplicate paragraphs
-            if not any(p['text'] == txt for p in paragraphs):
+
+            for tag in elem.find_all(True):
+                tag.attrs = {k: v for k, v in tag.attrs.items() if k in ['href', 'src', 'alt', 'title']}
+
+            inner_html = "".join(str(c) for c in elem.contents).strip() if elem.contents else txt
+            
+            if not any(p['text'] == txt or p.get('html') == inner_html for p in paragraphs):
                 paragraphs.append({
-                    'tag': elem.name if elem.name in ['h2', 'h3', 'blockquote'] else 'p',
-                    'text': txt
+                    'tag': elem.name if elem.name in ['h2', 'h3', 'h4', 'blockquote', 'ul', 'ol'] else 'p',
+                    'text': txt,
+                    'html': inner_html
                 })
 
     # Paywall Detection Logic
@@ -294,9 +314,9 @@ def scrape_article_data(url, raw_html=None, cookie_header=None, proxy_url=None):
         
         enriched_paragraphs = []
         opening_text = synopsis if synopsis else "A year after India enacted landmark gaming regulations, the industry faces severe hurdles curbing illegal offshore betting platforms that operate outside local regulatory reach."
-        enriched_paragraphs.append({'tag': 'p', 'text': opening_text})
+        enriched_paragraphs.append({'tag': 'p', 'text': opening_text, 'html': opening_text})
         
-        enriched_paragraphs.append({'tag': 'h2', 'text': '⚡ Executive Summary & Key Takeaways'})
+        enriched_paragraphs.append({'tag': 'h2', 'text': '⚡ Executive Summary & Key Takeaways', 'html': '⚡ Executive Summary & Key Takeaways'})
         highlights = [
             "Enforcement Directorate (ED) Investigation: Coordinated raids carried out across 12 strategic locations in Delhi-NCR, Maharashtra, Rajasthan, and Gujarat targeting entities linked to Parimatch, payment gateways, and Chartered Accountants.",
             "Circumvention Workarounds ('The Cheat Code'): Offshore gambling networks use dynamic mirror domains, proxy merchant IDs, mule UPI accounts, and cryptocurrency remittances to bypass domestic bans.",
@@ -304,29 +324,30 @@ def scrape_article_data(url, raw_html=None, cookie_header=None, proxy_url=None):
             "Policy Response: Regulatory bodies including DGGI and RBI are proposing mandatory payment recording and enhanced CA/merchant verification checks."
         ]
         for h in highlights:
-            enriched_paragraphs.append({'tag': 'p', 'text': f"• <b>{h.split(':')[0]}:</b> {':'.join(h.split(':')[1:])}"})
+            h_text = f"• <b>{h.split(':')[0]}:</b> {':'.join(h.split(':')[1:])}"
+            enriched_paragraphs.append({'tag': 'p', 'text': h, 'html': h_text})
 
-        enriched_paragraphs.append({'tag': 'h2', 'text': 'Background: The Post-Ban Real Money Gaming (RMG) Landscape'})
-        enriched_paragraphs.append({'tag': 'p', 'text': 'Following the implementation of the Promotion and Regulation of Online Gaming Act (2025), India banned unregulated real money gaming apps and imposed strict 28% GST rules to curb financial irregularities and illegal gambling. However, while compliant domestic operators suspended real-money games or transitioned to certified models, offshore platforms registered in tax havens have continued aggressively targeting Indian users.'})
+        enriched_paragraphs.append({'tag': 'h2', 'text': 'Background: The Post-Ban Real Money Gaming (RMG) Landscape', 'html': 'Background: The Post-Ban Real Money Gaming (RMG) Landscape'})
+        enriched_paragraphs.append({'tag': 'p', 'text': 'Following the implementation of the Promotion and Regulation of Online Gaming Act (2025), India banned unregulated real money gaming apps and imposed strict 28% GST rules to curb financial irregularities and illegal gambling. However, while compliant domestic operators suspended real-money games or transitioned to certified models, offshore platforms registered in tax havens have continued aggressively targeting Indian users.', 'html': 'Following the implementation of the Promotion and Regulation of Online Gaming Act (2025), India banned unregulated real money gaming apps and imposed strict 28% GST rules to curb financial irregularities and illegal gambling. However, while compliant domestic operators suspended real-money games or transitioned to certified models, offshore platforms registered in tax havens have continued aggressively targeting Indian users.'})
 
-        enriched_paragraphs.append({'tag': 'h2', 'text': 'Enforcement Directorate (ED) Raids & Payment Gateway Scrutiny'})
-        enriched_paragraphs.append({'tag': 'p', 'text': 'In a major crackdown, the Enforcement Directorate (ED) executed searches at 12 locations across four states—Maharashtra, Delhi-NCR, Rajasthan, and Gujarat. The investigation focuses on payment aggregators, fintech intermediaries, and Chartered Accountant (CA) firms that allegedly created dummy shell entities and mule accounts to process payments and facilitate illegal outward remittances for offshore entities like Parimatch and 1Xbet.'})
+        enriched_paragraphs.append({'tag': 'h2', 'text': 'Enforcement Directorate (ED) Raids & Payment Gateway Scrutiny', 'html': 'Enforcement Directorate (ED) Raids & Payment Gateway Scrutiny'})
+        enriched_paragraphs.append({'tag': 'p', 'text': 'In a major crackdown, the Enforcement Directorate (ED) executed searches at 12 locations across four states—Maharashtra, Delhi-NCR, Rajasthan, and Gujarat. The investigation focuses on payment aggregators, fintech intermediaries, and Chartered Accountant (CA) firms that allegedly created dummy shell entities and mule accounts to process payments and facilitate illegal outward remittances for offshore entities like Parimatch and 1Xbet.', 'html': 'In a major crackdown, the Enforcement Directorate (ED) executed searches at 12 locations across four states—Maharashtra, Delhi-NCR, Rajasthan, and Gujarat. The investigation focuses on payment aggregators, fintech intermediaries, and Chartered Accountant (CA) firms that allegedly created dummy shell entities and mule accounts to process payments and facilitate illegal outward remittances for offshore entities like Parimatch and 1Xbet.'})
 
-        enriched_paragraphs.append({'tag': 'blockquote', 'text': '"Offshore gambling networks use layered banking structures, proxy payment gateway accounts, and dynamic AMP mirror links to accept Indian rupee deposits while funneling profits overseas."'})
+        enriched_paragraphs.append({'tag': 'blockquote', 'text': '"Offshore gambling networks use layered banking structures, proxy payment gateway accounts, and dynamic AMP mirror links to accept Indian rupee deposits while funneling profits overseas."', 'html': '"Offshore gambling networks use layered banking structures, proxy payment gateway accounts, and dynamic AMP mirror links to accept Indian rupee deposits while funneling profits overseas."'})
 
-        enriched_paragraphs.append({'tag': 'h2', 'text': 'How Offshore Betting Sites Evade Controls (The "Cheat Code")'})
-        enriched_paragraphs.append({'tag': 'p', 'text': 'Offshore platforms evade domain blocking by MeitY through automated domain rotation and proxy links distributed via Telegram channels, social media influencers, and surrogate advertising. Deposits are processed by masking transaction descriptions as routine retail purchases, preventing automated bank flags from blocking payments.'})
+        enriched_paragraphs.append({'tag': 'h2', 'text': 'How Offshore Betting Sites Evade Controls (The "Cheat Code")', 'html': 'How Offshore Betting Sites Evade Controls (The "Cheat Code")'})
+        enriched_paragraphs.append({'tag': 'p', 'text': 'Offshore platforms evade domain blocking by MeitY through automated domain rotation and proxy links distributed via Telegram channels, social media influencers, and surrogate advertising. Deposits are processed by masking transaction descriptions as routine retail purchases, preventing automated bank flags from blocking payments.', 'html': 'Offshore platforms evade domain blocking by MeitY through automated domain rotation and proxy links distributed via Telegram channels, social media influencers, and surrogate advertising. Deposits are processed by masking transaction descriptions as routine retail purchases, preventing automated bank flags from blocking payments.'})
 
-        enriched_paragraphs.append({'tag': 'h2', 'text': 'Consumer Distress: Frozen Accounts & Trapped Balances'})
-        enriched_paragraphs.append({'tag': 'p', 'text': 'Distressed users across social media platforms like X report that once funds are deposited into offshore betting accounts, withdrawal requests are routinely blocked or delayed indefinitely under the pretext of mandatory verification. Because these operators possess no local corporate presence or regulatory license in India, victims possess no statutory dispute mechanisms to recover their capital.'})
+        enriched_paragraphs.append({'tag': 'h2', 'text': 'Consumer Distress: Frozen Accounts & Trapped Balances', 'html': 'Consumer Distress: Frozen Accounts & Trapped Balances'})
+        enriched_paragraphs.append({'tag': 'p', 'text': 'Distressed users across social media platforms like X report that once funds are deposited into offshore betting accounts, withdrawal requests are routinely blocked or delayed indefinitely under the pretext of mandatory verification. Because these operators possess no local corporate presence or regulatory license in India, victims possess no statutory dispute mechanisms to recover their capital.', 'html': 'Distressed users across social media platforms like X report that once funds are deposited into offshore betting accounts, withdrawal requests are routinely blocked or delayed indefinitely under the pretext of mandatory verification. Because these operators possess no local corporate presence or regulatory license in India, victims possess no statutory dispute mechanisms to recover their capital.'})
 
-        enriched_paragraphs.append({'tag': 'h2', 'text': 'Proposed Regulatory Measures & Banking Restrictions'})
-        enriched_paragraphs.append({'tag': 'p', 'text': 'To eliminate the payment loopholes exploited by offshore operators, regulatory authorities including the Directorate General of Goods and Services Tax Intelligence (DGGI) have proposed mandatory website payment trail recording. Banking institutions are also implementing enhanced biometric KYC and merchant registry validation to shut down mule accounts.'})
+        enriched_paragraphs.append({'tag': 'h2', 'text': 'Proposed Regulatory Measures & Banking Restrictions', 'html': 'Proposed Regulatory Measures & Banking Restrictions'})
+        enriched_paragraphs.append({'tag': 'p', 'text': 'To eliminate the payment loopholes exploited by offshore operators, regulatory authorities including the Directorate General of Goods and Services Tax Intelligence (DGGI) have proposed mandatory website payment trail recording. Banking institutions are also implementing enhanced biometric KYC and merchant registry validation to shut down mule accounts.', 'html': 'To eliminate the payment loopholes exploited by offshore operators, regulatory authorities including the Directorate General of Goods and Services Tax Intelligence (DGGI) have proposed mandatory website payment trail recording. Banking institutions are also implementing enhanced biometric KYC and merchant registry validation to shut down mule accounts.'})
 
         if rss_context:
-            enriched_paragraphs.append({'tag': 'h2', 'text': '📰 Related News Reports & Media Snippets'})
+            enriched_paragraphs.append({'tag': 'h2', 'text': '📰 Related News Reports & Media Snippets', 'html': '📰 Related News Reports & Media Snippets'})
             for snippet in rss_context:
-                enriched_paragraphs.append({'tag': 'p', 'text': snippet})
+                enriched_paragraphs.append({'tag': 'p', 'text': snippet, 'html': snippet})
 
         paragraphs = enriched_paragraphs
 
@@ -355,12 +376,16 @@ def get_template_html(data, template_id='economic'):
     for item in data['paragraphs']:
         tag = item['tag']
         txt = item['text']
-        if tag in ['h2', 'h3']:
-            body_html += f'<h2 class="sec-heading">{txt}</h2>'
+        inner_h = item.get('html', txt)
+        
+        if tag in ['h2', 'h3', 'h4']:
+            body_html += f'<h2 class="sec-heading">{inner_h}</h2>'
         elif tag == 'blockquote':
-            body_html += f'<div class="quote-card">{txt}</div>'
+            body_html += f'<div class="quote-card">{inner_h}</div>'
+        elif tag in ['ul', 'ol']:
+            body_html += f'<{tag} class="article-list">{inner_h}</{tag}>'
         else:
-            body_html += f'<p>{txt}</p>'
+            body_html += f'<p class="article-p">{inner_h}</p>'
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
