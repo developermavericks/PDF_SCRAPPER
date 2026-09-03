@@ -1,6 +1,8 @@
 import os
 import glob
 import time
+import threading
+import urllib.request
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -15,6 +17,28 @@ app = FastAPI(
     description="Automated Article Scraper & PDF Generator API",
     version="1.2.0"
 )
+
+def keep_alive_heartbeat():
+    """
+    Background thread to ping self every 10 minutes (600 seconds).
+    Prevents Render.com free instance spin-down delay.
+    """
+    time.sleep(10) # Wait for server startup
+    render_url = os.getenv("RENDER_EXTERNAL_URL", "")
+    
+    while True:
+        try:
+            target = f"{render_url}/api/history" if render_url else "http://127.0.0.1:8000/api/history"
+            req = urllib.request.Request(target, headers={'User-Agent': 'Render-KeepAlive-Heartbeat/1.0'})
+            urllib.request.urlopen(req, timeout=10)
+            print(f"[Keep-Alive Heartbeat] Pinged {target} successfully.")
+        except Exception as e:
+            print(f"[Keep-Alive Heartbeat] Warning: {e}")
+            
+        time.sleep(600) # Ping every 10 minutes
+
+# Start Keep-Alive Heartbeat Thread
+threading.Thread(target=keep_alive_heartbeat, daemon=True).start()
 
 app.add_middleware(
     CORSMiddleware,
