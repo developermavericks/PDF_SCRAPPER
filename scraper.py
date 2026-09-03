@@ -83,7 +83,15 @@ def fetch_rss_context(title, domain):
         
     return context_snippets
 
-DATAIMPULSE_PROXY_DEFAULT = os.getenv("DATAIMPULSE_PROXY", os.getenv("PROXY_URL", ""))
+DATAIMPULSE_HOST = os.getenv("DATAIMPULSE_HOST", "gw.dataimpulse.com")
+DATAIMPULSE_PORT = os.getenv("DATAIMPULSE_PORT", "823")
+DATAIMPULSE_USER = os.getenv("DATAIMPULSE_USER", "")
+DATAIMPULSE_PASS = os.getenv("DATAIMPULSE_PASS", "")
+
+if DATAIMPULSE_USER and DATAIMPULSE_PASS:
+    DATAIMPULSE_PROXY_DEFAULT = f"http://{DATAIMPULSE_USER}:{DATAIMPULSE_PASS}@{DATAIMPULSE_HOST}:{DATAIMPULSE_PORT}"
+else:
+    DATAIMPULSE_PROXY_DEFAULT = os.getenv("DATAIMPULSE_PROXY", os.getenv("PROXY_URL", ""))
 
 def fetch_via_dataimpulse_proxy(url, proxy_url=None, cookie_header=None):
     """
