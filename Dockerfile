@@ -11,5 +11,8 @@ COPY . .
 RUN playwright install chromium
 
 EXPOSE 8000
+EXPOSE 10000
 
-CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}"]
+ENV PORT=10000
+
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-10000}"]
